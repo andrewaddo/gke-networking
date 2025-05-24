@@ -51,11 +51,18 @@ To access your Nginx service, you'll need the external IP address of one of your
 ```
 kubectl get nodes -o wide
 ```
-2. Access Nginx: Open your browser and go to 
+2. Access Nginx: Open your browser and go to
+**Note**:Firewall Rules: By default, GKE nodes have firewall rules that block incoming traffic to NodePorts. You need to create a firewall rule to allow traffic to the NodePort range (30000-32767).
+```
+gcloud compute instances list --filter="name~gke-gke-networking" --format="table(n
+ame,tags.items)"
+gcloud compute firewall-rules create allow-nodeport --allow tcp:30000-32767 --source-ranges 0.0.0.0/0 --target-tags <actual-node-tag>
+```
 ```
 http://<NODE_EXTERNAL_IP>:<NODE_PORT>
 ```
-3. If you want to make this service accessible via a public load balancer IP (which is more common for web services), you would use Type=LoadBalancer when exposing the deployment:
+### Create a service using LB
+If you want to make this service accessible via a public load balancer IP (which is more common for web services), you would use Type=LoadBalancer when exposing the deployment:
 ```
 kubectl expose deployment nginx-deployment --name=nginx-lb-service --type=LoadBalancer --port=80 --target-port=80
 ```
@@ -68,3 +75,14 @@ Output should look like this
 NAME               TYPE           CLUSTER-IP       EXTERNAL-IP    PORT(S)        AGE
 nginx-lb-service   LoadBalancer   34.118.232.175   34.10.185.92   80:32722/TCP   57s
 ```
+Test the service 
+```
+curl $SERVICE_IP:$SERVICE_PORT
+```
+### Change the nginx response to include more data where the pod/node it is
+Review the content of nginx-config.yaml and nginx-deployment.yaml
+```
+kubectl apply -f nginx-config.yaml && kubectl apply -f nginx-deployment.yaml
+```
+1. Try hitting the different nodes's IP and observe the responses from different nodes/pods. It does show 
+2. Try the same for the LB service and observe the responses from different nodes/pods.
