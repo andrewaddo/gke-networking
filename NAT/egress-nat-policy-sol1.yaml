@@ -1,0 +1,12 @@
+apiVersion: networking.gke.io/v1
+kind: EgressNATPolicy
+metadata:
+  name: default
+spec:
+  action: NoSNAT
+  destinations:
+  # Internal Cluster Ranges (Must NOT be SNATed)
+  - cidr: 10.48.0.0/14   # Pod CIDR
+  - cidr: 10.52.0.0/20   # Service CIDR
+  - cidr: 10.128.0.0/20  # Node CIDR
+  # 10.150.0.0/24 (PSC) is omitted, meaning it WILL be SNATed.

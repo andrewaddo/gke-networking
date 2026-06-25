@@ -1,0 +1,10 @@
+apiVersion: networking.gke.io/v1
+kind: EgressNATPolicy
+metadata:
+  name: default
+spec:
+  action: NoSNAT
+  destinations:
+  - cidr: 10.0.0.0/8
+  - cidr: 172.16.0.0/12
+  - cidr: 192.168.0.0/16

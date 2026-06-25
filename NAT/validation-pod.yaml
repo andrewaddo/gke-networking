@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gcs-validation-pod
+  namespace: default
+spec:
+  containers:
+  - name: cloud-sdk
+    image: google/cloud-sdk:slim
+    command: ["sleep", "3600"]
