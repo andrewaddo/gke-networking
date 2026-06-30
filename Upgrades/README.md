@@ -126,11 +126,45 @@ You deploy the new version (Green) alongside the old version (Blue) at full capa
     1.  You have a Deployment for v1 (Blue) and a Kubernetes `Service` pointing to it.
     2.  You create a second Deployment for v2 (Green) with the same replica count.
     3.  You validate the Green deployment (e.g., via a temporary test service).
-    4.  You update the production `Service` selector to point to the Green Pods. Traffic flips instantly.
+    4.  You update the traffic routing to point to the Green Pods. Traffic flips instantly.
     5.  Once verified, you delete the Blue deployment.
 *   **Downtime:** **No.**
-*   **Pros:** Instant rollback (just flip the Service selector back), no version mix in production traffic during the flip.
+*   **Pros:** Instant rollback, no version mix in production traffic during the flip.
 *   **Cons:** Requires **double (2x) the CPU/Memory resources** temporarily during the deploy.
+
+#### Blue-Green in GKE: Using NEGs (Network Endpoint Groups)
+In GKE, performing Blue-Green deployments by simply updating the Kubernetes `Service` selector can lead to transient connection drops. The best practice is to leverage **Network Endpoint Groups (NEGs)** for container-native load balancing.
+
+*   **What is a NEG?** A NEG is a GCP resource that contains a group of backend IP addresses (in GKE, these are the Pod IPs). It allows the Google Cloud Load Balancer (GCLB) to route traffic **directly to the Pods**, bypassing `kube-proxy` (the Node IP hop).
+*   **How it works with Blue-Green:**
+    1.  Both Blue and Green services are configured to use NEGs (via the `cloud.google.com/neg: '{"ingress": true}'` annotation).
+    2.  Traffic is shifted at the **Load Balancer level** rather than the Kubernetes Service level.
+    3.  This ensures that when you switch traffic, the GCLB routes it directly to the new Pods, minimizing latency and avoiding dropped connections.
+
+#### Best Practice: Gateway API
+The recommended way to implement NEG-based Blue-Green deployments in GKE is using the **Gateway API** (the successor to Ingress). It allows you to manage the traffic split declaratively in Kubernetes.
+
+1.  **Define Services with NEGs:**
+    Ensure both Blue and Green Services have the NEG annotation:
+    ```yaml
+    metadata:
+      annotations:
+        cloud.google.com/neg: '{"ingress": true}'
+    ```
+2.  **Control Traffic via HTTPRoute:**
+    Use an `HTTPRoute` to shift traffic from Blue to Green by updating the `weight` of the backend references:
+    ```yaml
+    spec:
+      rules:
+      - backendRefs:
+        - name: app-blue
+          port: 80
+          weight: 0   # Switched off
+        - name: app-green
+          port: 80
+          weight: 100 # All traffic to Green
+    ```
+    This triggers the GCLB to update its routing to the respective NEGs atomically.
 
 ### Option D: Canary
 You deploy a small number of v2 Pods and route a small percentage of traffic to them to test with real users.
